@@ -65,4 +65,3 @@ public/
 | GET | `/api/orders` | ✔ | My orders |
 | GET | `/api/orders/:id` | ✔ | Order details |
 | POST | `/api/orders/:id/cancel` | ✔ | Cancel an order |
-# CodeAlpha_EcommerceStore

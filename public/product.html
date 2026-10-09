@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopEase — Product</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="container">
+    <a href="/" class="back-link">← Back to products</a>
+    <div id="product"><p class="muted">Loading...</p></div>
+  </main>
+
+  <footer>ShopEase · CodeAlpha Full Stack Internship — Task 1</footer>
+
+  <script src="/js/common.js"></script>
+  <script>
+    const container = document.getElementById('product');
+    const id = new URLSearchParams(location.search).get('id');
+
+    function render(p) {
+      document.title = `ShopEase — ${p.name}`;
+      const inCart = Cart.items().find((i) => i.productId === p.id)?.quantity || 0;
+      container.innerHTML = `
+        <div class="details">
+          <div class="product-img" style="background:${p.color}">${p.icon}</div>
+          <div>
+            <span class="category">${escapeHtml(p.category)}</span>
+            <h1>${escapeHtml(p.name)}</h1>
+            <div class="price">${money(p.price)}</div>
+            <p class="desc">${escapeHtml(p.description)}</p>
+            <p>${p.stock > 0 ? `<strong>${p.stock}</strong> in stock` : '<span class="stock-out">Out of stock</span>'}</p>
+            ${inCart ? `<p class="muted">${inCart} already in your cart</p>` : ''}
+            <div class="qty-row">
+              <label for="qty" style="margin:0">Qty</label>
+              <input type="number" id="qty" min="1" max="${p.stock}" value="1" ${p.stock === 0 ? 'disabled' : ''}>
+            </div>
+            <div class="qty-row">
+              <button class="btn" id="add" ${p.stock === 0 ? 'disabled' : ''}>Add to cart</button>
+              <button class="btn btn-outline" id="buy" ${p.stock === 0 ? 'disabled' : ''}>Buy now</button>
+            </div>
+          </div>
+        </div>`;
+
+      const qty = () => Math.max(1, parseInt(document.getElementById('qty').value, 10) || 1);
+      document.getElementById('add').addEventListener('click', () => {
+        if (Cart.add(p, qty())) { toast(`${p.name} added to cart`); render(p); }
+        else toast('No more stock available for this item', 'error');
+      });
+      document.getElementById('buy').addEventListener('click', () => {
+        Cart.add(p, qty());
+        location.href = '/cart.html';
+      });
+    }
+
+    api(`/products/${encodeURIComponent(id)}`)
+      .then(render)
+      .catch((err) => {
+        container.innerHTML = `<div class="empty"><div class="big">🔍</div><p>${escapeHtml(err.message)}</p><a class="btn" href="/">Browse products</a></div>`;
+      });
+  </script>
+</body>
+</html>

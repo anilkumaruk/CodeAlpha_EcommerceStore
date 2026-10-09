@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopEase — Cart</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="container">
+    <h1>Shopping Cart</h1>
+    <div id="cart"></div>
+  </main>
+
+  <footer>ShopEase · CodeAlpha Full Stack Internship — Task 1</footer>
+
+  <script src="/js/common.js"></script>
+  <script>
+    const container = document.getElementById('cart');
+
+    function checkoutPanel() {
+      const user = Auth.user;
+      if (!user) {
+        return `
+          <div class="panel">
+            <h2>Checkout</h2>
+            <p class="muted" style="margin-bottom:16px">Log in to place your order. Your cart will be kept.</p>
+            <a class="btn btn-block" href="/login.html?next=/cart.html">Login to checkout</a>
+          </div>`;
+      }
+      return `
+        <form class="panel" id="checkout">
+          <h2>Shipping details</h2>
+          <label for="name">Full name</label>
+          <input id="name" required value="${escapeHtml(user.name)}">
+          <label for="address">Address</label>
+          <textarea id="address" rows="3" required></textarea>
+          <label for="phone">Phone</label>
+          <input id="phone" type="tel" required>
+          <div class="form-error" id="error"></div>
+          <button class="btn btn-block" type="submit">Place order · ${money(Cart.total())}</button>
+        </form>`;
+    }
+
+    function render() {
+      const items = Cart.items();
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="empty panel">
+            <div class="big">🛒</div>
+            <p>Your cart is empty.</p>
+            <a class="btn" href="/">Start shopping</a>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="cart-layout">
+          <div>
+            <div class="panel" id="items">
+              ${items.map((i) => `
+                <div class="cart-item">
+                  <div class="thumb" style="background:${i.color}">${i.icon}</div>
+                  <div class="info">
+                    <a href="/product.html?id=${i.productId}">${escapeHtml(i.name)}</a>
+                    <div class="muted">${money(i.price)} each</div>
+                  </div>
+                  <input type="number" min="1" max="${i.stock}" value="${i.quantity}" data-qty="${i.productId}" aria-label="Quantity">
+                  <div class="line-total">${money(i.price * i.quantity)}</div>
+                  <button class="remove-btn" data-remove="${i.productId}" aria-label="Remove">✕</button>
+                </div>`).join('')}
+            </div>
+          </div>
+          <div>
+            <div class="panel" style="margin-bottom:20px">
+              <h2>Order summary</h2>
+              <div class="summary-row"><span>Items (${Cart.count()})</span><span>${money(Cart.total())}</span></div>
+              <div class="summary-row"><span>Shipping</span><span>Free</span></div>
+              <div class="summary-row total"><span>Total</span><span>${money(Cart.total())}</span></div>
+            </div>
+            ${checkoutPanel()}
+          </div>
+        </div>`;
+
+      const form = document.getElementById('checkout');
+      if (form) form.addEventListener('submit', placeOrder);
+    }
+
+    container.addEventListener('change', (e) => {
+      const id = e.target.dataset.qty;
+      if (!id) return;
+      Cart.setQuantity(Number(id), Math.max(1, parseInt(e.target.value, 10) || 1));
+      render();
+    });
+
+    container.addEventListener('click', (e) => {
+      const id = e.target.dataset.remove;
+      if (!id) return;
+      Cart.remove(Number(id));
+      render();
+    });
+
+    async function placeOrder(e) {
+      e.preventDefault();
+      const btn = e.target.querySelector('button[type=submit]');
+      const error = document.getElementById('error');
+      btn.disabled = true;
+      error.textContent = '';
+      try {
+        const order = await api('/orders', {
+          method: 'POST',
+          body: {
+            items: Cart.items().map((i) => ({ productId: i.productId, quantity: i.quantity })),
+            shipping: {
+              name: document.getElementById('name').value,
+              address: document.getElementById('address').value,
+              phone: document.getElementById('phone').value,
+            },
+          },
+        });
+        Cart.clear();
+        location.href = `/orders.html?placed=${order.id}`;
+      } catch (err) {
+        error.textContent = err.message;
+        btn.disabled = false;
+        if (!Auth.token) render();
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

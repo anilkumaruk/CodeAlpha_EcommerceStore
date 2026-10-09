@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopEase — Shop</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="container">
+    <h1>All Products</h1>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Search products...">
+      <select id="category"><option value="">All categories</option></select>
+    </div>
+    <div id="products" class="grid"></div>
+  </main>
+
+  <footer>ShopEase · CodeAlpha Full Stack Internship — Task 1</footer>
+
+  <script src="/js/common.js"></script>
+  <script>
+    const grid = document.getElementById('products');
+    const search = document.getElementById('search');
+    const category = document.getElementById('category');
+    let products = [];
+
+    function stockLabel(p) {
+      if (p.stock === 0) return '<span class="stock-out">Out of stock</span>';
+      if (p.stock <= 5) return `<span class="stock-low">Only ${p.stock} left</span>`;
+      return '';
+    }
+
+    function render() {
+      if (products.length === 0) {
+        grid.innerHTML = '<p class="muted">No products match your search.</p>';
+        return;
+      }
+      grid.innerHTML = products.map((p) => `
+        <div class="card">
+          <a href="/product.html?id=${p.id}" class="product-img" style="background:${p.color}">${p.icon}</a>
+          <div class="card-body">
+            <span class="category">${escapeHtml(p.category)}</span>
+            <h3><a href="/product.html?id=${p.id}">${escapeHtml(p.name)}</a></h3>
+            ${stockLabel(p)}
+            <div class="card-footer">
+              <span class="price">${money(p.price)}</span>
+              <button class="btn btn-sm" data-id="${p.id}" ${p.stock === 0 ? 'disabled' : ''}>Add to cart</button>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    async function load() {
+      const params = new URLSearchParams();
+      if (search.value.trim()) params.set('q', search.value.trim());
+      if (category.value) params.set('category', category.value);
+      try {
+        products = await api(`/products?${params}`);
+        render();
+      } catch (err) {
+        grid.innerHTML = `<p class="form-error">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-id]');
+      if (!btn) return;
+      const product = products.find((p) => p.id === Number(btn.dataset.id));
+      if (Cart.add(product)) toast(`${product.name} added to cart`);
+      else toast('No more stock available for this item', 'error');
+    });
+
+    let debounce;
+    search.addEventListener('input', () => { clearTimeout(debounce); debounce = setTimeout(load, 250); });
+    category.addEventListener('change', load);
+
+    api('/products/categories').then((cats) => {
+      category.innerHTML += cats.map((c) => `<option>${escapeHtml(c)}</option>`).join('');
+    });
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopEase — My Orders</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="container">
+    <h1>My Orders</h1>
+    <div id="banner"></div>
+    <div id="orders"><p class="muted">Loading...</p></div>
+  </main>
+
+  <footer>ShopEase · CodeAlpha Full Stack Internship — Task 1</footer>
+
+  <script src="/js/common.js"></script>
+  <script>
+    if (!Auth.token) location.href = '/login.html?next=/orders.html';
+
+    const container = document.getElementById('orders');
+    const placed = new URLSearchParams(location.search).get('placed');
+    if (placed) {
+      document.getElementById('banner').innerHTML =
+        `<div class="success-banner">✅ Order #${escapeHtml(placed)} placed successfully! Thank you for shopping with us.</div>`;
+    }
+
+    function renderOrder(o) {
+      return `
+        <div class="panel order">
+          <div class="order-head">
+            <div>
+              <strong>Order #${o.id}</strong>
+              <div class="muted">${new Date(o.created_at + 'Z').toLocaleString()}</div>
+            </div>
+            <span class="status status-${o.status}">${o.status}</span>
+          </div>
+          <ul class="order-items">
+            ${o.items.map((i) => `<li><span>${escapeHtml(i.name)} × ${i.quantity}</span><span>${money(i.price * i.quantity)}</span></li>`).join('')}
+          </ul>
+          <div class="muted" style="margin-top:8px">Ship to: ${escapeHtml(o.shipping_name)}, ${escapeHtml(o.shipping_address)} · ${escapeHtml(o.shipping_phone)}</div>
+          <div class="order-foot">
+            <strong>Total: ${money(o.total)}</strong>
+            ${o.status === 'Placed' ? `<button class="btn btn-sm btn-danger" data-cancel="${o.id}">Cancel order</button>` : ''}
+          </div>
+        </div>`;
+    }
+
+    async function load() {
+      try {
+        const orders = await api('/orders');
+        container.innerHTML = orders.length
+          ? orders.map(renderOrder).join('')
+          : `<div class="empty panel"><div class="big">📦</div><p>You haven't placed any orders yet.</p><a class="btn" href="/">Start shopping</a></div>`;
+      } catch (err) {
+        if (!Auth.token) location.href = '/login.html?next=/orders.html';
+        else container.innerHTML = `<p class="form-error">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    container.addEventListener('click', async (e) => {
+      const id = e.target.dataset.cancel;
+      if (!id) return;
+      e.target.disabled = true;
+      try {
+        await api(`/orders/${id}/cancel`, { method: 'POST' });
+        toast(`Order #${id} cancelled`);
+        load();
+      } catch (err) {
+        toast(err.message, 'error');
+        e.target.disabled = false;
+      }
+    });
+
+    load();
+  </script>
+</body>
+</html>
